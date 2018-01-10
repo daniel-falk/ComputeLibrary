@@ -57,18 +57,6 @@ void main_cnn(int argc, const char **argv)
     ARM_COMPUTE_UNUSED(argc);
     ARM_COMPUTE_UNUSED(argv);
 
-    // Create NEON allocator
-    Allocator allocator;
-
-    // Create memory manager components
-    // We need 2 memory managers: 1 for handling the tensors within the functions (mm_layers) and 1 for handling the input and output tensors of the functions (mm_transitions))
-    auto lifetime_mgr0  = std::make_shared<BlobLifetimeManager>();                           // Create lifetime manager
-    auto lifetime_mgr1  = std::make_shared<BlobLifetimeManager>();                           // Create lifetime manager
-    auto pool_mgr0      = std::make_shared<PoolManager>();                                   // Create pool manager
-    auto pool_mgr1      = std::make_shared<PoolManager>();                                   // Create pool manager
-    auto mm_layers      = std::make_shared<MemoryManagerOnDemand>(lifetime_mgr0, pool_mgr0); // Create the memory manager
-    auto mm_transitions = std::make_shared<MemoryManagerOnDemand>(lifetime_mgr1, pool_mgr1); // Create the memory manager
-
     // The src tensor should contain the input image
     Tensor src;
 
@@ -91,15 +79,15 @@ void main_cnn(int argc, const char **argv)
     Tensor out_softmax;
 
     // Create layers and set memory manager where allowed to manage internal memory requirements
-    NEConvolutionLayer    conv0(mm_layers);
-    NEConvolutionLayer    conv1(mm_layers);
+    NEConvolutionLayer    conv0;
+    NEConvolutionLayer    conv1;
     NEPoolingLayer        pool0;
     NEPoolingLayer        pool1;
-    NEFullyConnectedLayer fc0(mm_layers);
+    NEFullyConnectedLayer fc0;
     NEActivationLayer     act0;
     NEActivationLayer     act1;
     NEActivationLayer     act2;
-    NESoftmaxLayer        softmax(mm_layers);
+    NESoftmaxLayer        softmax;
 
     /* [Initialize tensors] */
 
@@ -205,39 +193,19 @@ void main_cnn(int argc, const char **argv)
     // in:128, out:128
     softmax.configure(&out_act2, &out_softmax);
 
-    /* -----------------------End: [Configure functions] */
+    /* -----------------------[Allocate tensors]------------------ */
+    // Now that the padding requirements are known we can allocate all tensors
 
-    /*[ Add tensors to memory manager ]*/
-
-    // We need 2 memory groups for handling the input and output
-    // We call explicitly allocate after manage() in order to avoid overlapping lifetimes
-    MemoryGroup memory_group0(mm_transitions);
-    MemoryGroup memory_group1(mm_transitions);
-
-    memory_group0.manage(&out_conv0);
     out_conv0.allocator()->allocate();
-    memory_group1.manage(&out_act0);
     out_act0.allocator()->allocate();
-    memory_group0.manage(&out_pool0);
     out_pool0.allocator()->allocate();
-    memory_group1.manage(&out_conv1);
     out_conv1.allocator()->allocate();
-    memory_group0.manage(&out_act1);
     out_act1.allocator()->allocate();
-    memory_group1.manage(&out_pool1);
     out_pool1.allocator()->allocate();
-    memory_group0.manage(&out_fc0);
     out_fc0.allocator()->allocate();
-    memory_group1.manage(&out_act2);
     out_act2.allocator()->allocate();
-    memory_group0.manage(&out_softmax);
     out_softmax.allocator()->allocate();
 
-    /* -----------------------End: [ Add tensors to memory manager ] */
-
-    /* [Allocate tensors] */
-
-    // Now that the padding requirements are known we can allocate all tensors
     src.allocator()->allocate();
     weights0.allocator()->allocate();
     weights1.allocator()->allocate();
@@ -246,49 +214,29 @@ void main_cnn(int argc, const char **argv)
     biases1.allocator()->allocate();
     biases2.allocator()->allocate();
 
-    /* -----------------------End: [Allocate tensors] */
-
-    // Finalize layers memory manager
-
-    // Set allocator that the memory manager will use
-    mm_layers->set_allocator(&allocator);
-
-    // Number of pools that the manager will create. This specifies how many layers you want to run in parallel
-    mm_layers->set_num_pools(1);
-
-    // Finalize the manager. (Validity checks, memory allocations etc)
-    mm_layers->finalize();
-
-    // Finalize transitions memory manager
-
-    // Set allocator that the memory manager will use
-    mm_transitions->set_allocator(&allocator);
-
-    // Number of pools that the manager will create. This specifies how many models we can run in parallel.
-    // Setting to 2 as we need one for the input and one for the output at any given time
-    mm_transitions->set_num_pools(2);
-
-    // Finalize the manager. (Validity checks, memory allocations etc)
-    mm_transitions->finalize();
-
-    /* [Initialize weights and biases tensors] */
-
-    // Once the tensors have been allocated, the src, weights and biases tensors can be initialized
-
     /* -----------------------[Initialize weights and biases tensors] */
 
-    size_t buflen = width_src_image * height_src_image * ifm_src_img;
     assert(("Single precision is not f32...", CHAR_BIT * sizeof(float) == 32));
-    float *dptr = src.buffer();
+
+    size_t buflen = src_shape.total_size();
+    float *dptr = reinterpret_cast<float *>(src.buffer() + src.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
     for ( ; buflen > 0; buflen--) {
-        *(dptr++) = rand();
+        *(dptr++) = (rand() % 255) / (float)255;
+    }
+
+    buflen = weights_shape_conv0.total_size();
+    dptr = reinterpret_cast<float *>(weights0.buffer() + weights0.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
+    for ( ; buflen > 0; buflen--) {
+        *(dptr++) = (rand() % 255) / (float)255;
+    }
+
+    buflen = biases_shape_conv0.total_size();
+    dptr = reinterpret_cast<float *>(biases0.buffer() + biases0.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
+    for ( ; buflen > 0; buflen--) {
+        *(dptr++) = (rand() % 255) / (float)255;
     }
 
     /* [Execute the functions] */
-
-    // Acquire memory for the memory groups
-    memory_group0.acquire();
-    memory_group1.acquire();
 
     std::cout << "Starting timed test..." << std::endl;
 
@@ -311,11 +259,14 @@ void main_cnn(int argc, const char **argv)
 
     std::cout << "Timed test at: " << t << " mS for " \
         << i << " iterations" << std::endl \
-        << "Avg: " << t / i << " mS per iteration.";
+        << "Avg: " << t / i << " mS per iteration." << std::endl;
 
-    // Release memory
-    memory_group0.release();
-    memory_group1.release();
+    std::cout << "First layer's ten first activations: " << std::endl;
+    dptr = reinterpret_cast<float *>(out_conv0.buffer() + out_conv0.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
+    for (int i = 0; i < 10; i ++, dptr ++) {
+        std::cout << " " << *dptr << " ";
+    }
+    std::cout << std::endl;
 
     /* -----------------------End: [Execute the functions] */
 }
