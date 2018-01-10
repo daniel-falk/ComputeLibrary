@@ -32,6 +32,8 @@
 #include "arm_compute/runtime/PoolManager.h"
 #include "utils/Utils.h"
 
+#include "utils/GraphUtils.h"
+
 #include <time.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -216,25 +218,32 @@ void main_cnn(int argc, const char **argv)
 
     /* -----------------------[Initialize weights and biases tensors] */
 
-    assert(("Single precision is not f32...", CHAR_BIT * sizeof(float) == 32));
-
+    // Randomize an input image
     size_t buflen = src_shape.total_size();
     float *dptr = reinterpret_cast<float *>(src.buffer() + src.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
     for ( ; buflen > 0; buflen--) {
-        *(dptr++) = (rand() % 255) / (float)255;
+        *(dptr++) = (rand() % 255) / (float)255; // 0 ... 1.0
     }
 
-    buflen = weights_shape_conv0.total_size();
-    dptr = reinterpret_cast<float *>(weights0.buffer() + weights0.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
-    for ( ; buflen > 0; buflen--) {
-        *(dptr++) = (rand() % 255) / (float)255;
-    }
+    // Load the weigths for conv layers
+    graph_utils::NumPyBinLoader c0_ldr("/tmp/weights/conv0_w.npy");
+    c0_ldr.access_tensor(weights0);
 
-    buflen = biases_shape_conv0.total_size();
-    dptr = reinterpret_cast<float *>(biases0.buffer() + biases0.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
-    for ( ; buflen > 0; buflen--) {
-        *(dptr++) = (rand() % 255) / (float)255;
-    }
+    graph_utils::NumPyBinLoader c1_ldr("/tmp/weights/conv1_w.npy");
+    c1_ldr.access_tensor(weights1);
+
+    graph_utils::NumPyBinLoader c2_ldr("/tmp/weights/conv2_w.npy");
+    c2_ldr.access_tensor(weights2);
+
+    // Load the biases for conv layers
+    graph_utils::NumPyBinLoader b0_ldr("/tmp/weights/conv0_b.npy");
+    b0_ldr.access_tensor(biases0);
+
+    graph_utils::NumPyBinLoader b1_ldr("/tmp/weights/conv1_b.npy");
+    b1_ldr.access_tensor(biases1);
+
+    graph_utils::NumPyBinLoader b2_ldr("/tmp/weights/conv2_b.npy");
+    b2_ldr.access_tensor(biases2);
 
     /* [Execute the functions] */
 
@@ -259,9 +268,9 @@ void main_cnn(int argc, const char **argv)
 
     std::cout << "Timed test at: " << t << " mS for " \
         << i << " iterations" << std::endl \
-        << "Avg: " << t / i << " mS per iteration." << std::endl;
+        << "Avg: " << t / i << " mS per iteration." << std::endl << std::endl;
 
-    std::cout << "First layer's ten first activations: " << std::endl;
+    std::cout << "First layer's ten first activations:" << std::endl;
     dptr = reinterpret_cast<float *>(out_conv0.buffer() + out_conv0.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
     for (int i = 0; i < 10; i ++, dptr ++) {
         std::cout << " " << *dptr << " ";

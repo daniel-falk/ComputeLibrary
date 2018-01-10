@@ -141,6 +141,8 @@ core_files += Glob('src/core/CPP/*.cpp')
 core_files += Glob('src/core/CPP/kernels/*.cpp')
 core_files += Glob('src/core/utils/*/*.cpp')
 
+core_files += Glob('utils/*.cpp')
+
 runtime_files = Glob('src/runtime/*.cpp')
 runtime_files += Glob('src/runtime/CPP/ICPPSimpleFunction.cpp')
 runtime_files += Glob('src/runtime/CPP/functions/*.cpp')
