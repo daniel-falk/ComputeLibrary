@@ -33,6 +33,12 @@
 #include "utils/Utils.h"
 
 #include <time.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <assert.h>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 
 using namespace arm_compute;
 using namespace utils;
@@ -268,9 +274,15 @@ void main_cnn(int argc, const char **argv)
     /* [Initialize weights and biases tensors] */
 
     // Once the tensors have been allocated, the src, weights and biases tensors can be initialized
-    // ...
 
     /* -----------------------[Initialize weights and biases tensors] */
+
+    size_t buflen = width_src_image * height_src_image * ifm_src_img;
+    assert(("Single precision is not f32...", CHAR_BIT * sizeof(float) == 32));
+    float *dptr = src.buffer();
+    for ( ; buflen > 0; buflen--) {
+        *(dptr++) = rand();
+    }
 
     /* [Execute the functions] */
 
@@ -321,3 +333,5 @@ int main(int argc, const char **argv)
 {
     return utils::run_example(argc, argv, main_cnn);
 }
+
+#pragma GCC diagnostic pop
