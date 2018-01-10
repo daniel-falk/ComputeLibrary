@@ -449,8 +449,8 @@ void main_cnn(int argc, const char **argv)
 
 // Initialize tensor of maxpool1
     TensorShape max_pool1_shape = conv1_out_shape;
-    max_pool1_shape.set(0, max_pool1_shape.x() / 2); // w - 2 / 2
-    max_pool1_shape.set(1, max_pool1_shape.y() / 2);
+    max_pool1_shape.set(0, (max_pool1_shape.x() - 3 + 2) / 2 /* + 1 */); // O = (W - K + 2P) / S + 1 !??!?!?!?!?!?
+    max_pool1_shape.set(1, (max_pool1_shape.y() - 3 + 2) / 2 /* + 1 */);
     max_pool1_out.allocator()->init(TensorInfo(max_pool1_shape, 1, DataType::F32));
 
 // Initialize tensors of fire2
@@ -565,14 +565,14 @@ void main_cnn(int argc, const char **argv)
 
 // Initialize tensor of maxpool2
     TensorShape max_pool2_shape = fire3_concat_out_shape;
-    max_pool2_shape.set(0, max_pool2_shape.x() / 2);
-    max_pool2_shape.set(1, max_pool2_shape.y() / 2);
+    max_pool2_shape.set(0, (max_pool2_shape.x() - 3) / 2 + 1);
+    max_pool2_shape.set(1, (max_pool2_shape.y() - 3) / 2 + 1);
     max_pool2_out.allocator()->init(TensorInfo(max_pool2_shape, 1, DataType::F32));
 
 // Initialize tensors of fire4
 
     // Squeeze
-    
+
     constexpr unsigned int fire4_squeeze_conv_kernel_x = 1;
     constexpr unsigned int fire4_squeeze_conv_kernel_y = 1;
     constexpr unsigned int fire4_squeeze_conv_ofm      = 32;
@@ -616,7 +616,7 @@ void main_cnn(int argc, const char **argv)
     fire4_conv_expand3x3_out.allocator()->init(TensorInfo(fire4_expand3x3_conv_out_shape, 1, DataType::F32));
     //RELU
     fire4_expand3x3_act_out.allocator()->init(TensorInfo(fire4_expand3x3_conv_out_shape, 1, DataType::F32));
-    
+
     // Concat (depthwise)
         //MIGHT BE WRONG
     const TensorShape fire4_concat_out_shape(fire4_expand3x3_conv_out_shape.x(), fire4_expand3x3_conv_out_shape.y(), fire4_expand3x3_conv_out_shape.z()*2); //double feature maps because of depthwise concatenation (expand1x1+expand3x3)
@@ -626,7 +626,7 @@ void main_cnn(int argc, const char **argv)
 // Initialize tensors of fire5
 
     // Squeeze
-    
+
     constexpr unsigned int fire5_squeeze_conv_kernel_x = 1;
     constexpr unsigned int fire5_squeeze_conv_kernel_y = 1;
     constexpr unsigned int fire5_squeeze_conv_ofm      = 32;
@@ -680,8 +680,8 @@ void main_cnn(int argc, const char **argv)
 
 // Initialize tensor of maxpool3
     TensorShape max_pool3_shape = fire5_concat_out_shape;
-    max_pool3_shape.set(0, max_pool2_shape.x() / 2);
-    max_pool3_shape.set(1, max_pool2_shape.y() / 2);
+    max_pool3_shape.set(0, (max_pool2_shape.x() - 3) / 2 + 1);
+    max_pool3_shape.set(1, (max_pool2_shape.y() - 3) / 2 + 1);
     max_pool3_out.allocator()->init(TensorInfo(max_pool3_shape, 1, DataType::F32));
 
 // Initialize tensors of fire6
@@ -941,7 +941,7 @@ void main_cnn(int argc, const char **argv)
     fire2_act_expand3x3.configure(&fire2_conv_expand3x3_out, &fire2_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire2_concat2(2);
+    std::vector<arm_compute::ITensor*> fire2_concat2;
     fire2_concat2.push_back(&fire2_expand1x1_act_out);
     fire2_concat2.push_back(&fire2_expand3x3_act_out);
 
@@ -958,7 +958,7 @@ void main_cnn(int argc, const char **argv)
     fire3_act_expand3x3.configure(&fire3_conv_expand3x3_out, &fire3_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire3_concat2(2);
+    std::vector<arm_compute::ITensor*> fire3_concat2;
     fire3_concat2.push_back(&fire3_expand1x1_act_out);
     fire3_concat2.push_back(&fire3_expand3x3_act_out);
 
@@ -966,7 +966,7 @@ void main_cnn(int argc, const char **argv)
 
 
     //maxpool2 - in: 3x3, stride 2
-    max_pool2.configure(&fire3_concat_out, &max_pool2_out, PoolingLayerInfo(PoolingType::MAX, 2, PadStrideInfo(3,3)));
+    max_pool2.configure(&fire3_concat_out, &max_pool2_out, PoolingLayerInfo(PoolingType::MAX, 3, PadStrideInfo(2,2)));
 
     //fire4
 
@@ -980,7 +980,7 @@ void main_cnn(int argc, const char **argv)
     fire4_act_expand3x3.configure(&fire4_conv_expand3x3_out, &fire4_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire4_concat2(2);
+    std::vector<arm_compute::ITensor*> fire4_concat2;
     fire4_concat2.push_back(&fire4_expand1x1_act_out);
     fire4_concat2.push_back(&fire4_expand3x3_act_out);
 
@@ -998,14 +998,14 @@ void main_cnn(int argc, const char **argv)
     fire5_act_expand3x3.configure(&fire5_conv_expand3x3_out, &fire5_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire5_concat2(2);
+    std::vector<arm_compute::ITensor*> fire5_concat2;
     fire5_concat2.push_back(&fire5_expand1x1_act_out);
     fire5_concat2.push_back(&fire5_expand3x3_act_out);
 
     fire5_concat.configure(fire5_concat2, &fire5_concat_out);
 
     //maxpool3 - in: 3x3, stride 2
-    max_pool3.configure(&fire5_concat_out, &max_pool3_out, PoolingLayerInfo(PoolingType::MAX, 2, PadStrideInfo(3,3)));
+    max_pool3.configure(&fire5_concat_out, &max_pool3_out, PoolingLayerInfo(PoolingType::MAX, 3, PadStrideInfo(2,2)));
 
     //fire6
 
@@ -1019,7 +1019,7 @@ void main_cnn(int argc, const char **argv)
     fire6_act_expand3x3.configure(&fire6_conv_expand3x3_out, &fire6_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire6_concat2(2);
+    std::vector<arm_compute::ITensor*> fire6_concat2;
     fire6_concat2.push_back(&fire6_expand1x1_act_out);
     fire6_concat2.push_back(&fire6_expand3x3_act_out);
 
@@ -1037,7 +1037,7 @@ void main_cnn(int argc, const char **argv)
     fire7_act_expand3x3.configure(&fire7_conv_expand3x3_out, &fire7_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire7_concat2(2);
+    std::vector<arm_compute::ITensor*> fire7_concat2;
     fire7_concat2.push_back(&fire7_expand1x1_act_out);
     fire7_concat2.push_back(&fire7_expand3x3_act_out);
 
@@ -1055,7 +1055,7 @@ void main_cnn(int argc, const char **argv)
     fire8_act_expand3x3.configure(&fire8_conv_expand3x3_out, &fire8_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire8_concat2(2);
+    std::vector<arm_compute::ITensor*> fire8_concat2;
     fire8_concat2.push_back(&fire8_expand1x1_act_out);
     fire8_concat2.push_back(&fire8_expand3x3_act_out);
 
@@ -1073,14 +1073,14 @@ void main_cnn(int argc, const char **argv)
     fire9_act_expand3x3.configure(&fire9_conv_expand3x3_out, &fire9_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire9_concat2(2);
+    std::vector<arm_compute::ITensor*> fire9_concat2;
     fire9_concat2.push_back(&fire9_expand1x1_act_out);
     fire9_concat2.push_back(&fire9_expand3x3_act_out);
 
     fire9_concat.configure(fire9_concat2, &fire9_concat_out);
 
     //conv10
-    conv10.configure(&fire9_concat_out, &conv10_weights, &conv10_bias, &conv10_out, PadStrideInfo(1,1,0,0)); //?
+    conv10.configure(&fire9_concat_out, &conv10_weights, &conv10_bias, &conv10_out, PadStrideInfo(1,1,0,0));
     conv10_act.configure(&conv10_out, &conv10_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //global avg pool //Need to implement
