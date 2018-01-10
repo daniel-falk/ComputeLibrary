@@ -449,7 +449,7 @@ void main_cnn(int argc, const char **argv)
 
 // Initialize tensor of maxpool1
     TensorShape max_pool1_shape = conv1_out_shape;
-    max_pool1_shape.set(0, max_pool1_shape.x() / 2);
+    max_pool1_shape.set(0, max_pool1_shape.x() / 2); // w - 2 / 2
     max_pool1_shape.set(1, max_pool1_shape.y() / 2);
     max_pool1_out.allocator()->init(TensorInfo(max_pool1_shape, 1, DataType::F32));
 
@@ -600,7 +600,7 @@ void main_cnn(int argc, const char **argv)
     fire4_bias_conv_expand1x1.allocator()->init(TensorInfo(fire4_expand1x1_conv_bias_shape, 1, DataType::F32));
     fire4_conv_expand1x1_out.allocator()->init(TensorInfo(fire4_expand1x1_conv_out_shape, 1, DataType::F32));
     //RELU
-    fire2_expand1x1_act_out.allocator()->init(TensorInfo(fire4_expand1x1_conv_out_shape, 1, DataType::F32));
+    fire4_expand1x1_act_out.allocator()->init(TensorInfo(fire4_expand1x1_conv_out_shape, 1, DataType::F32));
 
     // Expand 3x3 (pad=1)
     constexpr unsigned int fire4_expand3x3_conv_kernel_x = 3;
@@ -922,25 +922,25 @@ void main_cnn(int argc, const char **argv)
     /* -----------------------End: [Initialize tensors] */
 
     /* [Configure functions] */
-    
+
     //conv1 - in: 227x227x3: 3x3 convolution, 64 output feature maps stride 2
-    conv1.configure(&src, &conv1_weights, &conv1_bias, &conv1_out, PadStrideInfo(1, 1, 0, 0)); //STRIDE_X, STRIDE_Y, PAD_X, PAD_Y (1,1,1,1)?
+    conv1.configure(&src, &conv1_weights, &conv1_bias, &conv1_out, PadStrideInfo(1, 1, 1, 1)); //STRIDE_X, STRIDE_Y, PAD_X, PAD_Y
     conv1_act.configure(&conv1_out, &conv1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
-    //maxpool1 - in: 3x3, stride 2
-    max_pool1.configure(&conv1_act_out, &max_pool1_out, PoolingLayerInfo(PoolingType::MAX, 2, PadStrideInfo(3,3)));
+    ////maxpool1 - in: 3x3, stride 2
+    max_pool1.configure(&conv1_act_out, &max_pool1_out, PoolingLayerInfo(PoolingType::MAX, 3, PadStrideInfo(2,2)));
 
-    //fire2 - squeeze conv 1x1 16 filters, expand 1x1 64, expand 3x3 64 (PAD=1)
+    ////fire2 - squeeze conv 1x1 16 filters, expand 1x1 64, expand 3x3 64 (PAD=1)
     fire2_conv_squeeze.configure(&max_pool1_out, &fire2_weights_conv_squeeze, &fire2_bias_conv_squeeze, &fire2_conv_squeeze_out, PadStrideInfo(1,1,0,0));
     fire2_act_squeeze.configure(&fire2_conv_squeeze_out, &fire2_squeeze_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     fire2_conv_expand1x1.configure(&fire2_squeeze_act_out, &fire2_weights_conv_expand1x1, &fire2_bias_conv_expand1x1, &fire2_conv_expand1x1_out, PadStrideInfo(1,1,0,0));
     fire2_act_expand1x1.configure(&fire2_conv_expand1x1_out, &fire2_expand1x1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
+
     fire2_conv_expand3x3.configure(&fire2_squeeze_act_out, &fire2_weights_conv_expand3x3, &fire2_bias_conv_expand3x3, &fire2_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire2_act_expand3x3.configure(&fire2_conv_expand3x3_out, &fire2_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
-        //input 2 tensors, output 1 tensor, params to layer?
+
+    //input 2 tensors, output 1 tensor, params to layer?
     std::vector<arm_compute::ITensor*> fire2_concat2(2);
     fire2_concat2.push_back(&fire2_expand1x1_act_out);
     fire2_concat2.push_back(&fire2_expand3x3_act_out);
@@ -953,17 +953,17 @@ void main_cnn(int argc, const char **argv)
 
     fire3_conv_expand1x1.configure(&fire3_squeeze_act_out, &fire3_weights_conv_expand1x1, &fire3_bias_conv_expand1x1, &fire3_conv_expand1x1_out, PadStrideInfo(1,1,0,0));
     fire3_act_expand1x1.configure(&fire3_conv_expand1x1_out, &fire3_expand1x1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
+
     fire3_conv_expand3x3.configure(&fire3_squeeze_act_out, &fire3_weights_conv_expand3x3, &fire3_bias_conv_expand3x3, &fire3_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire3_act_expand3x3.configure(&fire3_conv_expand3x3_out, &fire3_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
-        //input 2 tensors, output 1 tensor, params to layer?
+
+    //input 2 tensors, output 1 tensor, params to layer?
     std::vector<arm_compute::ITensor*> fire3_concat2(2);
     fire3_concat2.push_back(&fire3_expand1x1_act_out);
     fire3_concat2.push_back(&fire3_expand3x3_act_out);
-    
+
     fire3_concat.configure(fire3_concat2, &fire3_concat_out);
-    
+
 
     //maxpool2 - in: 3x3, stride 2
     max_pool2.configure(&fire3_concat_out, &max_pool2_out, PoolingLayerInfo(PoolingType::MAX, 2, PadStrideInfo(3,3)));
@@ -975,34 +975,33 @@ void main_cnn(int argc, const char **argv)
 
     fire4_conv_expand1x1.configure(&fire4_squeeze_act_out, &fire4_weights_conv_expand1x1, &fire4_bias_conv_expand1x1, &fire4_conv_expand1x1_out, PadStrideInfo(1,1,0,0));
     fire4_act_expand1x1.configure(&fire4_conv_expand1x1_out, &fire4_expand1x1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
+
     fire4_conv_expand3x3.configure(&fire4_squeeze_act_out, &fire4_weights_conv_expand3x3, &fire4_bias_conv_expand3x3, &fire4_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire4_act_expand3x3.configure(&fire4_conv_expand3x3_out, &fire4_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
-        //input 2 tensors, output 1 tensor, params to layer?
+
+    //input 2 tensors, output 1 tensor, params to layer?
     std::vector<arm_compute::ITensor*> fire4_concat2(2);
     fire4_concat2.push_back(&fire4_expand1x1_act_out);
     fire4_concat2.push_back(&fire4_expand3x3_act_out);
-    
+
     fire4_concat.configure(fire4_concat2, &fire4_concat_out);
 
     //fire5
-
 
     fire5_conv_squeeze.configure(&fire4_concat_out, &fire5_weights_conv_squeeze, &fire5_bias_conv_squeeze, &fire5_conv_squeeze_out, PadStrideInfo(1,1,0,0));
     fire5_act_squeeze.configure(&fire5_conv_squeeze_out, &fire5_squeeze_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     fire5_conv_expand1x1.configure(&fire5_squeeze_act_out, &fire5_weights_conv_expand1x1, &fire5_bias_conv_expand1x1, &fire5_conv_expand1x1_out, PadStrideInfo(1,1,0,0));
     fire5_act_expand1x1.configure(&fire5_conv_expand1x1_out, &fire5_expand1x1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
+
     fire5_conv_expand3x3.configure(&fire5_squeeze_act_out, &fire5_weights_conv_expand3x3, &fire5_bias_conv_expand3x3, &fire5_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire5_act_expand3x3.configure(&fire5_conv_expand3x3_out, &fire5_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
-        //input 2 tensors, output 1 tensor, params to layer?
+
+    //input 2 tensors, output 1 tensor, params to layer?
     std::vector<arm_compute::ITensor*> fire5_concat2(2);
     fire5_concat2.push_back(&fire5_expand1x1_act_out);
     fire5_concat2.push_back(&fire5_expand3x3_act_out);
-    
+
     fire5_concat.configure(fire5_concat2, &fire5_concat_out);
 
     //maxpool3 - in: 3x3, stride 2
@@ -1015,11 +1014,11 @@ void main_cnn(int argc, const char **argv)
 
     fire6_conv_expand1x1.configure(&fire6_squeeze_act_out, &fire6_weights_conv_expand1x1, &fire6_bias_conv_expand1x1, &fire6_conv_expand1x1_out, PadStrideInfo(1,1,0,0));
     fire6_act_expand1x1.configure(&fire6_conv_expand1x1_out, &fire6_expand1x1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
+
     fire6_conv_expand3x3.configure(&fire6_squeeze_act_out, &fire6_weights_conv_expand3x3, &fire6_bias_conv_expand3x3, &fire6_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire6_act_expand3x3.configure(&fire6_conv_expand3x3_out, &fire6_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
-        //input 2 tensors, output 1 tensor, params to layer?
+
+    //input 2 tensors, output 1 tensor, params to layer?
     std::vector<arm_compute::ITensor*> fire6_concat2(2);
     fire6_concat2.push_back(&fire6_expand1x1_act_out);
     fire6_concat2.push_back(&fire6_expand3x3_act_out);
@@ -1027,17 +1026,17 @@ void main_cnn(int argc, const char **argv)
     fire6_concat.configure(fire6_concat2, &fire6_concat_out);
 
     //fire7
-    
+
     fire7_conv_squeeze.configure(&fire6_concat_out, &fire7_weights_conv_squeeze, &fire7_bias_conv_squeeze, &fire7_conv_squeeze_out, PadStrideInfo(1,1,0,0));
     fire7_act_squeeze.configure(&fire7_conv_squeeze_out, &fire7_squeeze_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     fire7_conv_expand1x1.configure(&fire7_squeeze_act_out, &fire7_weights_conv_expand1x1, &fire7_bias_conv_expand1x1, &fire7_conv_expand1x1_out, PadStrideInfo(1,1,0,0));
     fire7_act_expand1x1.configure(&fire7_conv_expand1x1_out, &fire7_expand1x1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
+
     fire7_conv_expand3x3.configure(&fire7_squeeze_act_out, &fire7_weights_conv_expand3x3, &fire7_bias_conv_expand3x3, &fire7_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire7_act_expand3x3.configure(&fire7_conv_expand3x3_out, &fire7_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
-        //input 2 tensors, output 1 tensor, params to layer?
+
+    //input 2 tensors, output 1 tensor, params to layer?
     std::vector<arm_compute::ITensor*> fire7_concat2(2);
     fire7_concat2.push_back(&fire7_expand1x1_act_out);
     fire7_concat2.push_back(&fire7_expand3x3_act_out);
@@ -1045,17 +1044,17 @@ void main_cnn(int argc, const char **argv)
     fire7_concat.configure(fire7_concat2, &fire7_concat_out);
 
     //fire8
-    
+
     fire8_conv_squeeze.configure(&fire7_concat_out, &fire8_weights_conv_squeeze, &fire8_bias_conv_squeeze, &fire8_conv_squeeze_out, PadStrideInfo(1,1,0,0));
     fire8_act_squeeze.configure(&fire8_conv_squeeze_out, &fire8_squeeze_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     fire8_conv_expand1x1.configure(&fire8_squeeze_act_out, &fire8_weights_conv_expand1x1, &fire8_bias_conv_expand1x1, &fire8_conv_expand1x1_out, PadStrideInfo(1,1,0,0));
     fire8_act_expand1x1.configure(&fire8_conv_expand1x1_out, &fire8_expand1x1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
+
     fire8_conv_expand3x3.configure(&fire8_squeeze_act_out, &fire8_weights_conv_expand3x3, &fire8_bias_conv_expand3x3, &fire8_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire8_act_expand3x3.configure(&fire8_conv_expand3x3_out, &fire8_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
-        //input 2 tensors, output 1 tensor, params to layer?
+
+    //input 2 tensors, output 1 tensor, params to layer?
     std::vector<arm_compute::ITensor*> fire8_concat2(2);
     fire8_concat2.push_back(&fire8_expand1x1_act_out);
     fire8_concat2.push_back(&fire8_expand3x3_act_out);
@@ -1069,180 +1068,180 @@ void main_cnn(int argc, const char **argv)
 
     fire9_conv_expand1x1.configure(&fire9_squeeze_act_out, &fire9_weights_conv_expand1x1, &fire9_bias_conv_expand1x1, &fire9_conv_expand1x1_out, PadStrideInfo(1,1,0,0));
     fire9_act_expand1x1.configure(&fire9_conv_expand1x1_out, &fire9_expand1x1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
+
     fire9_conv_expand3x3.configure(&fire9_squeeze_act_out, &fire9_weights_conv_expand3x3, &fire9_bias_conv_expand3x3, &fire9_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire9_act_expand3x3.configure(&fire9_conv_expand3x3_out, &fire9_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
-        //input 2 tensors, output 1 tensor, params to layer?
+
+    //input 2 tensors, output 1 tensor, params to layer?
     std::vector<arm_compute::ITensor*> fire9_concat2(2);
     fire9_concat2.push_back(&fire9_expand1x1_act_out);
     fire9_concat2.push_back(&fire9_expand3x3_act_out);
-    
+
     fire9_concat.configure(fire9_concat2, &fire9_concat_out);
 
     //conv10
     conv10.configure(&fire9_concat_out, &conv10_weights, &conv10_bias, &conv10_out, PadStrideInfo(1,1,0,0)); //?
     conv10_act.configure(&conv10_out, &conv10_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
-    
+
     //global avg pool //Need to implement
     //global_avg_pool.configure()
-    
+
     //softmax
     //softmax.configure(&global_avg_pool_out, &out_softmax)
-    
+
 
     /* -----------------------End: [Configure functions] */
 
     // The weights and biases tensors should be initialized with the values inferred with the training
-    
+
     src.allocator() -> allocate();
     // Conv1
     conv1_weights.allocator() -> allocate();
     conv1_bias.allocator() -> allocate();
     conv1_out.allocator() -> allocate();
     conv1_act_out.allocator() -> allocate();
-    
+
     max_pool1_out.allocator() -> allocate();
- 
+
     fire2_weights_conv_squeeze.allocator() -> allocate();
     fire2_bias_conv_squeeze.allocator() -> allocate();
     fire2_conv_squeeze_out.allocator() -> allocate();
     fire2_squeeze_act_out.allocator() -> allocate();
-    
+
     fire2_weights_conv_expand1x1.allocator() -> allocate();
     fire2_bias_conv_expand1x1.allocator() -> allocate();
     fire2_conv_expand1x1_out.allocator() -> allocate();
     fire2_expand1x1_act_out.allocator() -> allocate();
-   
+
     fire2_weights_conv_expand3x3.allocator() -> allocate();
     fire2_bias_conv_expand3x3.allocator() -> allocate();
     fire2_conv_expand3x3_out.allocator() -> allocate();
     fire2_expand3x3_act_out.allocator() -> allocate();
-    
+
     fire2_concat_out.allocator() -> allocate();
 
     fire3_weights_conv_squeeze.allocator() -> allocate();
     fire3_bias_conv_squeeze.allocator() -> allocate();
     fire3_conv_squeeze_out.allocator() -> allocate();
     fire3_squeeze_act_out.allocator() -> allocate();
-    
+
     fire3_weights_conv_expand1x1.allocator() -> allocate();
     fire3_bias_conv_expand1x1.allocator() -> allocate();
     fire3_conv_expand1x1_out.allocator() -> allocate();
     fire3_expand1x1_act_out.allocator() -> allocate();
-   
+
     fire3_weights_conv_expand3x3.allocator() -> allocate();
     fire3_bias_conv_expand3x3.allocator() -> allocate();
     fire3_conv_expand3x3_out.allocator() -> allocate();
     fire3_expand3x3_act_out.allocator() -> allocate();
-    
+
     fire3_concat_out.allocator() -> allocate();
-    
+
     max_pool2_out.allocator() -> allocate();
-    
+
     fire4_weights_conv_squeeze.allocator() -> allocate();
     fire4_bias_conv_squeeze.allocator() -> allocate();
     fire4_conv_squeeze_out.allocator() -> allocate();
     fire4_squeeze_act_out.allocator() -> allocate();
-    
+
     fire4_weights_conv_expand1x1.allocator() -> allocate();
     fire4_bias_conv_expand1x1.allocator() -> allocate();
     fire4_conv_expand1x1_out.allocator() -> allocate();
     fire4_expand1x1_act_out.allocator() -> allocate();
-   
+
     fire4_weights_conv_expand3x3.allocator() -> allocate();
     fire4_bias_conv_expand3x3.allocator() -> allocate();
     fire4_conv_expand3x3_out.allocator() -> allocate();
     fire4_expand3x3_act_out.allocator() -> allocate();
-    
+
     fire4_concat_out.allocator() -> allocate();
-    
+
     fire5_weights_conv_squeeze.allocator() -> allocate();
     fire5_bias_conv_squeeze.allocator() -> allocate();
     fire5_conv_squeeze_out.allocator() -> allocate();
     fire5_squeeze_act_out.allocator() -> allocate();
-    
+
     fire5_weights_conv_expand1x1.allocator() -> allocate();
     fire5_bias_conv_expand1x1.allocator() -> allocate();
     fire5_conv_expand1x1_out.allocator() -> allocate();
     fire5_expand1x1_act_out.allocator() -> allocate();
-   
+
     fire5_weights_conv_expand3x3.allocator() -> allocate();
     fire5_bias_conv_expand3x3.allocator() -> allocate();
     fire5_conv_expand3x3_out.allocator() -> allocate();
     fire5_expand3x3_act_out.allocator() -> allocate();
-    
+
     fire5_concat_out.allocator() -> allocate();
 
     max_pool3_out.allocator() -> allocate();
-    
+
     fire6_weights_conv_squeeze.allocator() -> allocate();
     fire6_bias_conv_squeeze.allocator() -> allocate();
     fire6_conv_squeeze_out.allocator() -> allocate();
     fire6_squeeze_act_out.allocator() -> allocate();
-    
+
     fire6_weights_conv_expand1x1.allocator() -> allocate();
     fire6_bias_conv_expand1x1.allocator() -> allocate();
     fire6_conv_expand1x1_out.allocator() -> allocate();
     fire6_expand1x1_act_out.allocator() -> allocate();
-   
+
     fire6_weights_conv_expand3x3.allocator() -> allocate();
     fire6_bias_conv_expand3x3.allocator() -> allocate();
     fire6_conv_expand3x3_out.allocator() -> allocate();
     fire6_expand3x3_act_out.allocator() -> allocate();
-    
+
     fire6_concat_out.allocator() -> allocate();
-    
+
     fire7_weights_conv_squeeze.allocator() -> allocate();
     fire7_bias_conv_squeeze.allocator() -> allocate();
     fire7_conv_squeeze_out.allocator() -> allocate();
     fire7_squeeze_act_out.allocator() -> allocate();
-    
+
     fire7_weights_conv_expand1x1.allocator() -> allocate();
     fire7_bias_conv_expand1x1.allocator() -> allocate();
     fire7_conv_expand1x1_out.allocator() -> allocate();
     fire7_expand1x1_act_out.allocator() -> allocate();
-   
+
     fire7_weights_conv_expand3x3.allocator() -> allocate();
     fire7_bias_conv_expand3x3.allocator() -> allocate();
     fire7_conv_expand3x3_out.allocator() -> allocate();
     fire7_expand3x3_act_out.allocator() -> allocate();
-    
+
     fire7_concat_out.allocator() -> allocate();
 
     fire8_weights_conv_squeeze.allocator() -> allocate();
     fire8_bias_conv_squeeze.allocator() -> allocate();
     fire8_conv_squeeze_out.allocator() -> allocate();
     fire8_squeeze_act_out.allocator() -> allocate();
-    
+
     fire8_weights_conv_expand1x1.allocator() -> allocate();
     fire8_bias_conv_expand1x1.allocator() -> allocate();
     fire8_conv_expand1x1_out.allocator() -> allocate();
     fire8_expand1x1_act_out.allocator() -> allocate();
-   
+
     fire8_weights_conv_expand3x3.allocator() -> allocate();
     fire8_bias_conv_expand3x3.allocator() -> allocate();
     fire8_conv_expand3x3_out.allocator() -> allocate();
     fire8_expand3x3_act_out.allocator() -> allocate();
-    
+
     fire8_concat_out.allocator() -> allocate();
 
-    
+
     fire9_weights_conv_squeeze.allocator() -> allocate();
     fire9_bias_conv_squeeze.allocator() -> allocate();
     fire9_conv_squeeze_out.allocator() -> allocate();
     fire9_squeeze_act_out.allocator() -> allocate();
-    
+
     fire9_weights_conv_expand1x1.allocator() -> allocate();
     fire9_bias_conv_expand1x1.allocator() -> allocate();
     fire9_conv_expand1x1_out.allocator() -> allocate();
     fire9_expand1x1_act_out.allocator() -> allocate();
-   
+
     fire9_weights_conv_expand3x3.allocator() -> allocate();
     fire9_bias_conv_expand3x3.allocator() -> allocate();
     fire9_conv_expand3x3_out.allocator() -> allocate();
     fire9_expand3x3_act_out.allocator() -> allocate();
-    
+
     fire9_concat_out.allocator() -> allocate();
 
     conv10_weights.allocator() -> allocate();
@@ -1267,7 +1266,6 @@ void main_cnn(int argc, const char **argv)
 
     /* [Execute the functions] */
 
-    // Acquire memory for the memory groups
     conv1.run();
     conv1_act.run();
 
@@ -1359,7 +1357,7 @@ void main_cnn(int argc, const char **argv)
     //global_avg_pool.run();
 
     //softmax.run();
-    
+
 
     // Release memory
 

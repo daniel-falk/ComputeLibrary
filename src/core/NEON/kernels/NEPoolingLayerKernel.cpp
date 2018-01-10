@@ -124,6 +124,8 @@ Status validate_arguments(const ITensorInfo *input, const ITensorInfo *output, c
 
     if(output->total_size() != 0)
     {
+        std::cout << "Testing pool, expect " << pooled_w << "x" << pooled_h \
+            << " is " << output->dimension(0) << "x" << output->dimension(1) << std::endl;
         ARM_COMPUTE_RETURN_ERROR_ON_MISMATCHING_DATA_TYPES(input, output);
         ARM_COMPUTE_RETURN_ERROR_ON_MISMATCHING_FIXED_POINT(input, output);
         ARM_COMPUTE_RETURN_ERROR_ON((output->dimension(0) != pooled_w) || (output->dimension(1) != pooled_h));
