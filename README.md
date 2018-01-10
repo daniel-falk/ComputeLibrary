@@ -1,4 +1,43 @@
+# SqueezeNet for NEON
 
+Fork of ARM Compute Library with a SqueezeNet implementation that is not using OpenCL! Works perfect on Raspberry PI.
+
+# Instructions:
+
+If cross-compiling, follow steps 1 to 5, if on a neon chip just use native compiler to build, copy images/labels/weights and run.
+
+1. Add "deb http://emdebian.org/tools/debian/ jessie main" to apt sources
+
+2. Add the archive-key
+```bash
+curl http://emdebian.org/tools/debian/emdebian-toolchain-archive.key | sudo apt-key add -
+```
+
+3. Install cross-compilers
+```bash
+sudo dpkg --add-architecture armhf
+sudo apt-get update
+sudo apt-get install crossbuild-essential-armhf
+```
+
+4. Build
+```bash
+cd ComputeLibrary
+export CXX=arm-linux-gnueabihf-g++
+scons Werror=1 debug=0 asserts=0 neon=1 opencl=0 os=linux arch=armv7a examples=1 standalone=1
+```bash
+
+the standalone flag will statically link the whole ACL into the example binaries to simplify move of files. 
+
+5. Run SqueezeNet
+```bash
+cp -r examples/{images,labels,weights} build/examples
+scp -r build/examples/ <arm-machine-ip>:/tmp
+ssh <arm-machine-ip>
+/tmp/example/neon_squeezenet
+```
+
+# Arm Compute Library
 Please report issues here: https://github.com/ARM-software/ComputeLibrary/issues
 Make sure you are using the latest version of the library before opening an issue. Thanks
 

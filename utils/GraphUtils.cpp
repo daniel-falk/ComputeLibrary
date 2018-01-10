@@ -313,30 +313,21 @@ bool NumPyBinLoader::access_tensor(ITensor &tensor)
     ARM_COMPUTE_ERROR_ON_MSG(typestr != expect_typestr, "Typestrings mismatch");
 
     // Validate tensor shape
-    std::cout << "Loading tensor:" << std::endl << std::endl;
-    std::cout << "Tensor dimensions: " << tensor_shape.num_dimensions() << std::endl;
-    std::cout << "Load data dimensions: " << shape.size() << std::endl;
     ARM_COMPUTE_ERROR_ON_MSG(shape.size() != tensor_shape.num_dimensions(), "Tensor ranks mismatch");
-    std::cout << "Fortran_order: " << fortran_order << std::endl;
     if(fortran_order)
     {
         for(size_t i = 0; i < shape.size(); ++i)
         {
-            std::cout << "Shapes: " << tensor_shape[i] << " \t " << shape[i] \
-                << ((tensor_shape[i] != shape[i]) ? "!!!!!!!" : " OK") << std::endl;
-            //ARM_COMPUTE_ERROR_ON_MSG(tensor_shape[i] != shape[i], "Tensor dimensions mismatch");
+            ARM_COMPUTE_ERROR_ON_MSG(tensor_shape[i] != shape[i], "Tensor dimensions mismatch");
         }
     }
     else
     {
         for(size_t i = 0; i < shape.size(); ++i)
         {
-            std::cout << "Shapes: " << tensor_shape[i] << " \t " << shape[i] \
-                << ((tensor_shape[i] != shape[i]) ? "!!!!!!!" : " OK") << std::endl;
-            //ARM_COMPUTE_ERROR_ON_MSG(tensor_shape[i] != shape[shape.size() - i - 1], "Tensor dimensions mismatch");
+            ARM_COMPUTE_ERROR_ON_MSG(tensor_shape[i] != shape[shape.size() - i - 1], "Tensor dimensions mismatch");
         }
     }
-    std::cout << std::endl;
 
     // Read data
     if(tensor.info()->padding().empty())
