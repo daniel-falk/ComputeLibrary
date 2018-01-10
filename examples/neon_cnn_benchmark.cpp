@@ -277,12 +277,44 @@ void main_cnn(int argc, const char **argv)
 
     /* -----------------------[Initialize weights and biases tensors] */
 
-    size_t buflen = width_src_image * height_src_image * ifm_src_img;
     assert(("Single precision is not f32...", CHAR_BIT * sizeof(float) == 32));
-    float *dptr = src.buffer();
+
+    size_t buflen = src_shape.total_size();
+    std::cout << "Image buffer size: " << buflen << std::endl;
+    float *dptr = (float *)src.buffer();
     for ( ; buflen > 0; buflen--) {
-        *(dptr++) = rand();
+        *(dptr++) = (rand() % 255) / (float)255;
     }
+    dptr = (float *)src.buffer();
+    for (int i = 0; i < 10; i ++, dptr ++) {
+        std::cout << " " << *dptr << " ";
+    }
+    std::cout << std::endl;
+
+    buflen = weights_shape_conv0.total_size();
+    std::cout << "Weights0 buffer size: " << buflen << std::endl;
+    dptr = (float *)weights0.buffer();
+    for ( ; buflen > 0; buflen--) {
+        *(dptr++) = (rand() % 255) / (float)255;
+    }
+    dptr = (float *)weights0.buffer();
+    for (int i = 0; i < 10; i ++, dptr ++) {
+        std::cout << " " << *dptr << " ";
+    }
+    std::cout << std::endl;
+
+    buflen = biases_shape_conv0.total_size();
+    std::cout << "Biases0 buffer size: " << buflen << std::endl;
+    dptr = (float *)biases0.buffer();
+    for ( ; buflen > 0; buflen--) {
+        *(dptr++) = (rand() % 255) / (float)255;
+    }
+    dptr = (float *)biases0.buffer();
+    for (int i = 0; i < 8; i ++, dptr ++) {
+        std::cout << " " << *dptr << " ";
+    }
+    std::cout << std::endl;
+
 
     /* [Execute the functions] */
 
@@ -295,7 +327,7 @@ void main_cnn(int argc, const char **argv)
     double t = t_msec(CLOCK_MONOTONIC);
 
     int i;
-    for (i = 0; i < 1e4; i++) {
+    for (i = 0; i < 1; i++) {
         conv0.run();
         act0.run();
         pool0.run();
@@ -311,7 +343,14 @@ void main_cnn(int argc, const char **argv)
 
     std::cout << "Timed test at: " << t << " mS for " \
         << i << " iterations" << std::endl \
-        << "Avg: " << t / i << " mS per iteration.";
+        << "Avg: " << t / i << " mS per iteration." << std::endl;
+
+    std::cout << "First layer's ten first activations: " << std::endl;
+    dptr = (float *)out_conv0.buffer();
+    for (int i = 0; i < 10; i ++, dptr ++) {
+        std::cout << " " << *dptr << " ";
+    }
+    std::cout << std::endl;
 
     // Release memory
     memory_group0.release();
