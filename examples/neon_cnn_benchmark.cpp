@@ -94,9 +94,9 @@ void main_cnn(int argc, const char **argv)
     /* [Initialize tensors] */
 
     // Initialize src tensor
-    constexpr unsigned int width_src_image  = 32;
-    constexpr unsigned int height_src_image = 32;
-    constexpr unsigned int ifm_src_img      = 1;
+    constexpr unsigned int width_src_image  = 128;
+    constexpr unsigned int height_src_image = 128;
+    constexpr unsigned int ifm_src_img      = 3;
 
     const TensorShape src_shape(width_src_image, height_src_image, ifm_src_img);
     src.allocator()->init(TensorInfo(src_shape, 1, DataType::F32));
@@ -218,22 +218,30 @@ void main_cnn(int argc, const char **argv)
 
     /* -----------------------[Initialize weights and biases tensors] */
 
-    // Randomize an input image
-    size_t buflen = src_shape.total_size();
-    float *dptr = reinterpret_cast<float *>(src.buffer() + src.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
-    for ( ; buflen > 0; buflen--) {
-        *(dptr++) = (rand() % 255) / (float)255; // 0 ... 1.0
-    }
+    // Load an input image
+    PPMLoader src_ldr;
+    src_ldr.open("/tmp/images/128x128.ppm");
+    src_ldr.fill_planar_tensor(src);
 
-    // Load the weigths for conv layers
-    graph_utils::NumPyBinLoader c0_ldr("/tmp/weights/conv0_w.npy");
-    c0_ldr.access_tensor(weights0);
+    // Subtract the mean value from each channel
+    const float mean[] = {104, 117, 123};
+    Window window;
+    window.use_tensor_dimensions(src.info()->tensor_shape());
+    execute_window_loop(window, [&](const Coordinates & id)
+    {
+        const float value = *reinterpret_cast<float *>(src.ptr_to_element(id)) - mean[id.z()];
+        *reinterpret_cast<float *>(src.ptr_to_element(id)) = value;
+    });
 
-    graph_utils::NumPyBinLoader c1_ldr("/tmp/weights/conv1_w.npy");
-    c1_ldr.access_tensor(weights1);
+    // Load the weigths for convolutionary and fully connected layers
+    graph_utils::NumPyBinLoader w0_ldr("/tmp/weights/conv0_w.npy");
+    w0_ldr.access_tensor(weights0);
 
-    graph_utils::NumPyBinLoader c2_ldr("/tmp/weights/conv2_w.npy");
-    c2_ldr.access_tensor(weights2);
+    graph_utils::NumPyBinLoader w1_ldr("/tmp/weights/conv1_w.npy");
+    w1_ldr.access_tensor(weights1);
+
+    graph_utils::NumPyBinLoader w2_ldr("/tmp/weights/fc2_w.npy");
+    w2_ldr.access_tensor(weights2);
 
     // Load the biases for conv layers
     graph_utils::NumPyBinLoader b0_ldr("/tmp/weights/conv0_b.npy");
@@ -242,7 +250,7 @@ void main_cnn(int argc, const char **argv)
     graph_utils::NumPyBinLoader b1_ldr("/tmp/weights/conv1_b.npy");
     b1_ldr.access_tensor(biases1);
 
-    graph_utils::NumPyBinLoader b2_ldr("/tmp/weights/conv2_b.npy");
+    graph_utils::NumPyBinLoader b2_ldr("/tmp/weights/fc2_b.npy");
     b2_ldr.access_tensor(biases2);
 
     /* [Execute the functions] */
@@ -252,7 +260,7 @@ void main_cnn(int argc, const char **argv)
     double t = t_msec(CLOCK_MONOTONIC);
 
     int i;
-    for (i = 0; i < 1e4; i++) {
+    for (i = 0; i < 100; i++) {
         conv0.run();
         act0.run();
         pool0.run();
@@ -271,7 +279,7 @@ void main_cnn(int argc, const char **argv)
         << "Avg: " << t / i << " mS per iteration." << std::endl << std::endl;
 
     std::cout << "First layer's ten first activations:" << std::endl;
-    dptr = reinterpret_cast<float *>(out_conv0.buffer() + out_conv0.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
+    float *dptr = reinterpret_cast<float *>(out_conv0.buffer() + out_conv0.info()->offset_element_in_bytes(Coordinates(0, 0, 0, 0)));
     for (int i = 0; i < 10; i ++, dptr ++) {
         std::cout << " " << *dptr << " ";
     }
