@@ -218,20 +218,9 @@ void main_cnn(int argc, const char **argv)
 
     /* -----------------------[Initialize weights and biases tensors] */
 
-    // Load an input image
-    PPMLoader src_ldr;
-    src_ldr.open("/tmp/images/128x128.ppm");
-    src_ldr.fill_planar_tensor(src);
-
-    // Subtract the mean value from each channel
-    const float mean[] = {104, 117, 123};
-    Window window;
-    window.use_tensor_dimensions(src.info()->tensor_shape());
-    execute_window_loop(window, [&](const Coordinates & id)
-    {
-        const float value = *reinterpret_cast<float *>(src.ptr_to_element(id)) - mean[id.z()];
-        *reinterpret_cast<float *>(src.ptr_to_element(id)) = value;
-    });
+    const std::string src_path = "/tmp/images/128x128.ppm";
+    graph_utils::PPMAccessor src_ldr(src_path, true, 104., 117., 123.);
+    src_ldr.access_tensor(src);
 
     // Load the weigths for convolutionary and fully connected layers
     graph_utils::NumPyBinLoader w0_ldr("/tmp/weights/conv0_w.npy");
