@@ -141,6 +141,15 @@ static double t_msec(int clock_type) {
     return 1e3 * t.tv_sec + t.tv_nsec / 1e6;
 }
 
+template <typename F>
+void clock_fn(F f) {
+    clock_t t_begin = std::clock();
+    f();
+    clock_t t_end = std::clock();
+    double t = double(t_end - t_begin) * 1000 / CLOCKS_PER_SEC;
+    std::cout << t << " ms" << std::endl;
+}
+
 void load_npy(Tensor &tensor, std::string prefix, std::string name) {
     graph_utils::NumPyBinLoader ldr(prefix + name + ".npy");
     ldr.access_tensor(tensor);
@@ -1367,7 +1376,6 @@ void main_cnn(int argc, const char **argv)
     // Conv 10
     load_npy(conv10_weights, wb_path, "conv10_w");
     load_npy(conv10_bias, wb_path, "conv10_b");
-
     // Once the tensors have been allocated, the src, weights and biases tensors can be initialized
     // ...
 
@@ -1375,128 +1383,120 @@ void main_cnn(int argc, const char **argv)
 
     /* [Execute the functions] */
 
-    double t = t_msec(CLOCK_MONOTONIC);
 
-    conv1.run();
-    conv1_act.run();
-
-
-    max_pool1.run();
+    std::cout << "conv1:" << std::endl;
+    clock_fn([&](){conv1.run();});
+    clock_fn([&](){conv1_act.run();});
 
 
-    fire2_conv_squeeze.run();
-    fire2_act_squeeze.run();
-    fire2_conv_expand1x1.run();
-    fire2_act_expand1x1.run();
-    fire2_conv_expand3x3.run();
-    fire2_act_expand3x3.run();
-    fire2_concat.run();
-
-    fire3_conv_squeeze.run();
-    fire3_act_squeeze.run();
-    fire3_conv_expand1x1.run();
-    fire3_act_expand1x1.run();
-    fire3_conv_expand3x3.run();
-    fire3_act_expand3x3.run();
-    fire3_concat.run();
-
-    max_pool2.run();
+    std::cout << "\nmaxpool1:" << std::endl;
+    clock_fn([&](){max_pool1.run();});
 
 
-    fire4_conv_squeeze.run();
-    fire4_act_squeeze.run();
-    fire4_conv_expand1x1.run();
-    fire4_act_expand1x1.run();
-    fire4_conv_expand3x3.run();
-    fire4_act_expand3x3.run();
-    fire4_concat.run();
+    std::cout << "\nfire2:" << std::endl;
+    clock_fn([&](){fire2_conv_squeeze.run();});
+    clock_fn([&](){fire2_act_squeeze.run();});
+    clock_fn([&](){fire2_conv_expand1x1.run();});
+    clock_fn([&](){fire2_act_expand1x1.run();});
+    clock_fn([&](){fire2_conv_expand3x3.run();});
+    clock_fn([&](){fire2_act_expand3x3.run();});
 
-    fire5_conv_squeeze.run();
-    fire5_act_squeeze.run();
-    fire5_conv_expand1x1.run();
-    fire5_act_expand1x1.run();
-    fire5_conv_expand3x3.run();
-    fire5_act_expand3x3.run();
-    fire5_concat.run();
+    clock_fn([&](){fire2_concat.run();});
 
+    std::cout << "\nfire3:" << std::endl;
+    clock_fn([&](){fire3_conv_squeeze.run();});
+    clock_fn([&](){fire3_act_squeeze.run();});
+    clock_fn([&](){fire3_conv_expand1x1.run();});
+    clock_fn([&](){fire3_act_expand1x1.run();});
+    clock_fn([&](){fire3_conv_expand3x3.run();});
+    clock_fn([&](){fire3_act_expand3x3.run();});
 
-    max_pool3.run();
+    clock_fn([&](){fire3_concat.run();});
 
-
-    fire6_conv_squeeze.run();
-    fire6_act_squeeze.run();
-    fire6_conv_expand1x1.run();
-    fire6_act_expand1x1.run();
-    fire6_conv_expand3x3.run();
-    fire6_act_expand3x3.run();
-    fire6_concat.run();
+    std::cout << "\nmaxpool2:" << std::endl;
+    clock_fn([&](){max_pool2.run();});
 
 
-    fire7_conv_squeeze.run();
-    fire7_act_squeeze.run();
-    fire7_conv_expand1x1.run();
-    fire7_act_expand1x1.run();
-    fire7_conv_expand3x3.run();
-    fire7_act_expand3x3.run();
-    fire7_concat.run();
+    std::cout << "\nfire4:" << std::endl;
+    clock_fn([&](){fire4_conv_squeeze.run();});
+    clock_fn([&](){fire4_act_squeeze.run();});
+    clock_fn([&](){fire4_conv_expand1x1.run();});
+    clock_fn([&](){fire4_act_expand1x1.run();});
+    clock_fn([&](){fire4_conv_expand3x3.run();});
+    clock_fn([&](){fire4_act_expand3x3.run();});
+
+    clock_fn([&](){fire4_concat.run();});
+
+    std::cout << "\nfire5:" << std::endl;
+    clock_fn([&](){fire5_conv_squeeze.run();});
+    clock_fn([&](){fire5_act_squeeze.run();});
+    clock_fn([&](){fire5_conv_expand1x1.run();});
+    clock_fn([&](){fire5_act_expand1x1.run();});
+    clock_fn([&](){fire5_conv_expand3x3.run();});
+    clock_fn([&](){fire5_act_expand3x3.run();});
+
+    clock_fn([&](){fire5_concat.run();});
+
+    std::cout << "\nmaxpool3:" << std::endl;
+    clock_fn([&](){max_pool3.run();});
+
+    std::cout << "\nfire6:" << std::endl;
+    clock_fn([&](){fire6_conv_squeeze.run();});
+    clock_fn([&](){fire6_act_squeeze.run();});
+    clock_fn([&](){fire6_conv_expand1x1.run();});
+    clock_fn([&](){fire6_act_expand1x1.run();});
+    clock_fn([&](){fire6_conv_expand3x3.run();});
+    clock_fn([&](){fire6_act_expand3x3.run();});
+
+    clock_fn([&](){fire6_concat.run();});
+
+
+    std::cout << "\nfire7:" << std::endl;
+    clock_fn([&](){fire7_conv_squeeze.run();});
+    clock_fn([&](){fire7_act_squeeze.run();});
+    clock_fn([&](){fire7_conv_expand1x1.run();});
+    clock_fn([&](){fire7_act_expand1x1.run();});
+    clock_fn([&](){fire7_conv_expand3x3.run();});
+    clock_fn([&](){fire7_act_expand3x3.run();});
+
+    clock_fn([&](){fire7_concat.run();});
 
 
 
-    fire8_conv_squeeze.run();
-    fire8_act_squeeze.run();
-    fire8_conv_expand1x1.run();
-    fire8_act_expand1x1.run();
-    fire8_conv_expand3x3.run();
-    fire8_act_expand3x3.run();
-    fire8_concat.run();
+    std::cout << "\nfire8:" << std::endl;
+    clock_fn([&](){fire8_conv_squeeze.run();});
+    clock_fn([&](){fire8_act_squeeze.run();});
+    clock_fn([&](){fire8_conv_expand1x1.run();});
+    clock_fn([&](){fire8_act_expand1x1.run();});
+    clock_fn([&](){fire8_conv_expand3x3.run();});
+    clock_fn([&](){fire8_act_expand3x3.run();});
 
+    clock_fn([&](){fire8_concat.run();});
 
-    fire9_conv_squeeze.run();
-    fire9_act_squeeze.run();
-    fire9_conv_expand1x1.run();
-    fire9_act_expand1x1.run();
-    fire9_conv_expand3x3.run();
-    fire9_act_expand3x3.run();
+    std::cout << "\nfire9:" << std::endl;
+    clock_fn([&](){fire9_conv_squeeze.run();});
+    clock_fn([&](){fire9_act_squeeze.run();});
+    clock_fn([&](){fire9_conv_expand1x1.run();});
+    clock_fn([&](){fire9_act_expand1x1.run();});
+    clock_fn([&](){fire9_conv_expand3x3.run();});
+    clock_fn([&](){fire9_act_expand3x3.run();});
 
-    fire9_concat.run();
+    clock_fn([&](){fire9_concat.run();});
 
+    std::cout << "\nconv10:" << std::endl;
+    clock_fn([&](){conv10.run();});
+    clock_fn([&](){conv10_act.run();});
 
-    conv10.run();
-    conv10_act.run();
+    std::cout << "\nglobal_avg_pool:" << std::endl;
+    clock_fn([&](){global_avg_pool.run();});
 
+    std::cout << "\nflatten:" << std::endl;
+    clock_fn([&](){flatten.run();});
 
-    global_avg_pool.run();
-
-    flatten.run();
-
-    softmax.run();
-
-    t = t_msec(CLOCK_MONOTONIC) - t;
-    std::cout << t << " mS" << std::endl;
-
-    std::map<float, std::string>ma;
-    std::ifstream outfile("labels/synset.txt");
-    std::string line = "";
-    int x = 0;
-    int h = 1;
-    while(getline(outfile, line)){
-        float temp = *reinterpret_cast<float *>(softmax_out.buffer() + softmax_out.info()->offset_element_in_bytes(Coordinates(x)));
-        ++ x;
-        ma[temp] = line;
-    }
-
-    int topN = 5;
-    int cur = 1;
-    for(auto it = ma.rbegin(); it != ma.rend(); ++ it){
-        std::cout << "N0 " << h++ << " " << it->first << " is " << it->second << std::endl;
-        if(topN <= cur){
-            break;
-        }
-        ++cur;
-    }
+    std::cout << "\nsoftmax:" << std::endl;
+    clock_fn([&](){softmax.run();});
 
     // Release memory
-
     /* -----------------------End: [Execute the functions] */
 }
 
