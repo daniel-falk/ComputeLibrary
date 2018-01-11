@@ -140,12 +140,12 @@ void main_cnn(int argc, const char **argv)
 
     // Create memory manager components
     // We need 2 memory managers: 1 for handling the tensors within the functions (mm_layers) and 1 for handling the input and output tensors of the functions (mm_transitions))
-    //auto lifetime_mgr0  = std::make_shared<BlobLifetimeManager>();                           // Create lifetime manager
-    //auto lifetime_mgr1  = std::make_shared<BlobLifetimeManager>();                           // Create lifetime manager
-    //auto pool_mgr0      = std::make_shared<PoolManager>();                                   // Create pool manager
-    //auto pool_mgr1      = std::make_shared<PoolManager>();                                   // Create pool manager
-    //auto mm_layers      = std::make_shared<MemoryManagerOnDemand>(lifetime_mgr0, pool_mgr0); // Create the memory manager
-    //auto mm_transitions = std::make_shared<MemoryManagerOnDemand>(lifetime_mgr1, pool_mgr1); // Create the memory manager
+    auto lifetime_mgr0  = std::make_shared<BlobLifetimeManager>();                           // Create lifetime manager
+    auto lifetime_mgr1  = std::make_shared<BlobLifetimeManager>();                           // Create lifetime manager
+    auto pool_mgr0      = std::make_shared<PoolManager>();                                   // Create pool manager
+    auto pool_mgr1      = std::make_shared<PoolManager>();                                   // Create pool manager
+    auto mm_layers      = std::make_shared<MemoryManagerOnDemand>(lifetime_mgr0, pool_mgr0); // Create the memory manager
+    auto mm_transitions = std::make_shared<MemoryManagerOnDemand>(lifetime_mgr1, pool_mgr1); // Create the memory manager
 
     // The src tensor should contain the input image
     Tensor src;
@@ -321,6 +321,9 @@ void main_cnn(int argc, const char **argv)
     // global avg pool (need to implement global pooling functionality)
     Tensor global_avg_pool_out;
 
+    // Flatten
+    Tensor flatten_out;
+
     // Softmax
     Tensor softmax_out;
 
@@ -419,6 +422,8 @@ void main_cnn(int argc, const char **argv)
     // global avg pool
     NEPoolingLayer              global_avg_pool;
 
+    // Flatten layer
+    NEFlattenLayer              flatten;
     // Softmax
     NESoftmaxLayer              softmax;
 
@@ -449,8 +454,8 @@ void main_cnn(int argc, const char **argv)
 
 // Initialize tensor of maxpool1
     TensorShape max_pool1_shape = conv1_out_shape;
-    max_pool1_shape.set(0, max_pool1_shape.x() / 2);
-    max_pool1_shape.set(1, max_pool1_shape.y() / 2);
+    max_pool1_shape.set(0, (max_pool1_shape.x() - 3 + 2) / 2 /* + 1 */); // O = (W - K + 2P) / S + 1 !??!?!?!?!?!?
+    max_pool1_shape.set(1, (max_pool1_shape.y() - 3 + 2) / 2 /* + 1 */);
     max_pool1_out.allocator()->init(TensorInfo(max_pool1_shape, 1, DataType::F32));
 
 // Initialize tensors of fire2
@@ -565,8 +570,8 @@ void main_cnn(int argc, const char **argv)
 
 // Initialize tensor of maxpool2
     TensorShape max_pool2_shape = fire3_concat_out_shape;
-    max_pool2_shape.set(0, max_pool2_shape.x() / 2);
-    max_pool2_shape.set(1, max_pool2_shape.y() / 2);
+    max_pool2_shape.set(0, (max_pool2_shape.x() - 3) / 2 + 1);
+    max_pool2_shape.set(1, (max_pool2_shape.y() - 3) / 2 + 1);
     max_pool2_out.allocator()->init(TensorInfo(max_pool2_shape, 1, DataType::F32));
 
 // Initialize tensors of fire4
@@ -680,8 +685,8 @@ void main_cnn(int argc, const char **argv)
 
 // Initialize tensor of maxpool3
     TensorShape max_pool3_shape = fire5_concat_out_shape;
-    max_pool3_shape.set(0, max_pool2_shape.x() / 2);
-    max_pool3_shape.set(1, max_pool2_shape.y() / 2);
+    max_pool3_shape.set(0, (max_pool2_shape.x() - 3) / 2 + 1);
+    max_pool3_shape.set(1, (max_pool2_shape.y() - 3) / 2 + 1);
     max_pool3_out.allocator()->init(TensorInfo(max_pool3_shape, 1, DataType::F32));
 
 // Initialize tensors of fire6
@@ -911,12 +916,17 @@ void main_cnn(int argc, const char **argv)
     conv10_out.allocator()->init(TensorInfo(conv10_out_shape, 1, DataType::F32));
     conv10_act_out.allocator()->init(TensorInfo(conv10_out_shape, 1, DataType::F32));
 
-//  Initialize tensors of global_avg_pool
-    const TensorShape global_avg_pool_shape = conv10_out_shape.z(); //global avg pool = vector of avg values, one per featuremap
+// Initialize tensors of global_avg_pool
+    const TensorShape global_avg_pool_shape(conv10_kernel_x, conv10_kernel_y, conv10_out_shape.z()); //global avg pool = vector of avg values, one per featuremap
     global_avg_pool_out.allocator()->init(TensorInfo(global_avg_pool_shape, 1, DataType::F32));
 
+    constexpr unsigned int num_labels = 1000;
+// Flatten layer for 1x1x1000 -> 1000
+    const TensorShape flatten_shape(num_labels);
+    flatten_out.allocator()->init(TensorInfo(flatten_shape, 1, DataType::F32));
+
 // Initialize tensor of softmax
-    const TensorShape softmax_shape(global_avg_pool_shape.x());
+    const TensorShape softmax_shape(num_labels);
     softmax_out.allocator()->init(TensorInfo(softmax_shape, 1, DataType::F32));
 
     /* -----------------------End: [Initialize tensors] */
@@ -924,7 +934,7 @@ void main_cnn(int argc, const char **argv)
     /* [Configure functions] */
 
     //conv1 - in: 227x227x3: 3x3 convolution, 64 output feature maps stride 2
-    conv1.configure(&src, &conv1_weights, &conv1_bias, &conv1_out, PadStrideInfo(1, 1, 0, 0)); //STRIDE_X, STRIDE_Y, PAD_X, PAD_Y (1,1,1,1)?
+    conv1.configure(&src, &conv1_weights, &conv1_bias, &conv1_out, PadStrideInfo(1, 1, 1, 1)); //STRIDE_X, STRIDE_Y, PAD_X, PAD_Y
     conv1_act.configure(&conv1_out, &conv1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //maxpool1 - in: 3x3, stride 2
@@ -940,8 +950,8 @@ void main_cnn(int argc, const char **argv)
     fire2_conv_expand3x3.configure(&fire2_squeeze_act_out, &fire2_weights_conv_expand3x3, &fire2_bias_conv_expand3x3, &fire2_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire2_act_expand3x3.configure(&fire2_conv_expand3x3_out, &fire2_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
-        //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire2_concat2(2);
+    //input 2 tensors, output 1 tensor, params to layer?
+    std::vector<arm_compute::ITensor*> fire2_concat2;
     fire2_concat2.push_back(&fire2_expand1x1_act_out);
     fire2_concat2.push_back(&fire2_expand3x3_act_out);
 
@@ -957,8 +967,8 @@ void main_cnn(int argc, const char **argv)
     fire3_conv_expand3x3.configure(&fire3_squeeze_act_out, &fire3_weights_conv_expand3x3, &fire3_bias_conv_expand3x3, &fire3_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire3_act_expand3x3.configure(&fire3_conv_expand3x3_out, &fire3_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
-        //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire3_concat2(2);
+    //input 2 tensors, output 1 tensor, params to layer?
+    std::vector<arm_compute::ITensor*> fire3_concat2;
     fire3_concat2.push_back(&fire3_expand1x1_act_out);
     fire3_concat2.push_back(&fire3_expand3x3_act_out);
 
@@ -979,15 +989,14 @@ void main_cnn(int argc, const char **argv)
     fire4_conv_expand3x3.configure(&fire4_squeeze_act_out, &fire4_weights_conv_expand3x3, &fire4_bias_conv_expand3x3, &fire4_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire4_act_expand3x3.configure(&fire4_conv_expand3x3_out, &fire4_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
-        //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire4_concat2(2);
+    //input 2 tensors, output 1 tensor, params to layer?
+    std::vector<arm_compute::ITensor*> fire4_concat2;
     fire4_concat2.push_back(&fire4_expand1x1_act_out);
     fire4_concat2.push_back(&fire4_expand3x3_act_out);
 
     fire4_concat.configure(fire4_concat2, &fire4_concat_out);
 
     //fire5
-
 
     fire5_conv_squeeze.configure(&fire4_concat_out, &fire5_weights_conv_squeeze, &fire5_bias_conv_squeeze, &fire5_conv_squeeze_out, PadStrideInfo(1,1,0,0));
     fire5_act_squeeze.configure(&fire5_conv_squeeze_out, &fire5_squeeze_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
@@ -998,8 +1007,8 @@ void main_cnn(int argc, const char **argv)
     fire5_conv_expand3x3.configure(&fire5_squeeze_act_out, &fire5_weights_conv_expand3x3, &fire5_bias_conv_expand3x3, &fire5_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire5_act_expand3x3.configure(&fire5_conv_expand3x3_out, &fire5_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
-        //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire5_concat2(2);
+    //input 2 tensors, output 1 tensor, params to layer?
+    std::vector<arm_compute::ITensor*> fire5_concat2;
     fire5_concat2.push_back(&fire5_expand1x1_act_out);
     fire5_concat2.push_back(&fire5_expand3x3_act_out);
 
@@ -1019,8 +1028,8 @@ void main_cnn(int argc, const char **argv)
     fire6_conv_expand3x3.configure(&fire6_squeeze_act_out, &fire6_weights_conv_expand3x3, &fire6_bias_conv_expand3x3, &fire6_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire6_act_expand3x3.configure(&fire6_conv_expand3x3_out, &fire6_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
-        //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire6_concat2(2);
+    //input 2 tensors, output 1 tensor, params to layer?
+    std::vector<arm_compute::ITensor*> fire6_concat2;
     fire6_concat2.push_back(&fire6_expand1x1_act_out);
     fire6_concat2.push_back(&fire6_expand3x3_act_out);
 
@@ -1037,8 +1046,8 @@ void main_cnn(int argc, const char **argv)
     fire7_conv_expand3x3.configure(&fire7_squeeze_act_out, &fire7_weights_conv_expand3x3, &fire7_bias_conv_expand3x3, &fire7_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire7_act_expand3x3.configure(&fire7_conv_expand3x3_out, &fire7_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
-        //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire7_concat2(2);
+    //input 2 tensors, output 1 tensor, params to layer?
+    std::vector<arm_compute::ITensor*> fire7_concat2;
     fire7_concat2.push_back(&fire7_expand1x1_act_out);
     fire7_concat2.push_back(&fire7_expand3x3_act_out);
 
@@ -1055,8 +1064,8 @@ void main_cnn(int argc, const char **argv)
     fire8_conv_expand3x3.configure(&fire8_squeeze_act_out, &fire8_weights_conv_expand3x3, &fire8_bias_conv_expand3x3, &fire8_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire8_act_expand3x3.configure(&fire8_conv_expand3x3_out, &fire8_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
-        //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire8_concat2(2);
+    //input 2 tensors, output 1 tensor, params to layer?
+    std::vector<arm_compute::ITensor*> fire8_concat2;
     fire8_concat2.push_back(&fire8_expand1x1_act_out);
     fire8_concat2.push_back(&fire8_expand3x3_act_out);
 
@@ -1073,8 +1082,8 @@ void main_cnn(int argc, const char **argv)
     fire9_conv_expand3x3.configure(&fire9_squeeze_act_out, &fire9_weights_conv_expand3x3, &fire9_bias_conv_expand3x3, &fire9_conv_expand3x3_out, PadStrideInfo(1,1,1,1)); //PAD=1
     fire9_act_expand3x3.configure(&fire9_conv_expand3x3_out, &fire9_expand3x3_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
-        //input 2 tensors, output 1 tensor, params to layer?
-    std::vector<arm_compute::ITensor*> fire9_concat2(2);
+    //input 2 tensors, output 1 tensor, params to layer?
+    std::vector<arm_compute::ITensor*> fire9_concat2;
     fire9_concat2.push_back(&fire9_expand1x1_act_out);
     fire9_concat2.push_back(&fire9_expand3x3_act_out);
 
@@ -1084,9 +1093,13 @@ void main_cnn(int argc, const char **argv)
     conv10.configure(&fire9_concat_out, &conv10_weights, &conv10_bias, &conv10_out, PadStrideInfo(1,1,0,0));
     conv10_act.configure(&conv10_out, &conv10_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
+    //global avg pool
     global_avg_pool.configure(&conv10_out, &global_avg_pool_out, PoolingLayerInfo(PoolingType::AVG));
 
-    softmax.configure(&global_avg_pool_out, &softmax_out);
+    //Flatten
+    flatten.configure(&global_avg_pool_out, &flatten_out);
+    //Softmax
+    softmax.configure(&flatten_out, &softmax_out);
 
 
     /* -----------------------End: [Configure functions] */
@@ -1248,9 +1261,11 @@ void main_cnn(int argc, const char **argv)
     conv10_out.allocator() -> allocate();
     conv10_act_out.allocator() -> allocate();
 
-    //global_avg_pool_out.allocator() -> allocate();
+    global_avg_pool_out.allocator() -> allocate();
 
-    //softmax_out.allocator() -> allocate();
+    flatten_out.allocator() -> allocate();
+
+    softmax_out.allocator() -> allocate();
 
 
     /* -----------------------End: [Allocate tensors] */
@@ -1265,7 +1280,6 @@ void main_cnn(int argc, const char **argv)
 
     /* [Execute the functions] */
 
-    // Acquire memory for the memory groups
     conv1.run();
     conv1_act.run();
 
@@ -1356,7 +1370,10 @@ void main_cnn(int argc, const char **argv)
 
     global_avg_pool.run();
 
+    flatten.run();
+
     softmax.run();
+
 
     // Release memory
 
