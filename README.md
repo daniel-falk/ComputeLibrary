@@ -25,8 +25,7 @@ sudo apt-get install crossbuild-essential-armhf
 cd ComputeLibrary
 export CXX=arm-linux-gnueabihf-g++
 scons Werror=1 debug=0 asserts=0 neon=1 opencl=0 os=linux arch=armv7a examples=1 standalone=1
-```bash
-
+```
 the standalone flag will statically link the whole ACL into the example binaries to simplify move of files. 
 
 5. Run SqueezeNet
