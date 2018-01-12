@@ -421,7 +421,7 @@ void squeezenet_create() {
 
     const TensorShape conv1_weights_shape(conv1_kernel_x, conv1_kernel_y, src_shape.z(), conv1_ofm);
     const TensorShape conv1_bias_shape(conv1_weights_shape[3]);
-    const TensorShape conv1_out_shape(src_shape.x(), src_shape.y(), conv1_weights_shape[3]);
+    const TensorShape conv1_out_shape(src_shape.x() / 2, src_shape.y() / 2, conv1_weights_shape[3]);
 
     conv1_weights.allocator()->init(TensorInfo(conv1_weights_shape, 1, DataType::F32));
     conv1_bias.allocator()->init(TensorInfo(conv1_bias_shape, 1, DataType::F32));
@@ -829,7 +829,7 @@ void squeezenet_create() {
     ///* ------------------------------ [Configure functions] ----------------------------------- */
 
     //conv1 - in: 227x227x3: 3x3 convolution, 64 output feature maps stride 2
-    conv1.configure(&src, &conv1_weights, &conv1_bias, &conv1_out, PadStrideInfo(1, 1, 1, 1)); //STRIDE_X, STRIDE_Y, PAD_X, PAD_Y
+    conv1.configure(&src, &conv1_weights, &conv1_bias, &conv1_out, PadStrideInfo(2, 2, 1, 1)); //STRIDE_X, STRIDE_Y, PAD_X, PAD_Y
     conv1_act.configure(&conv1_out, &conv1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //maxpool1 - in: 3x3, stride 2
@@ -1233,50 +1233,50 @@ void squeezenet_create() {
 
 char *squeezenet_classify(unsigned char *img_buffer) {
 
-    //if (src.info()->padding().empty()) {
-    //    printf("Copy: %d values, (%d)\n", 227*227, src.info()->total_size());
-    //    map(src, true);
+    if (src.info()->padding().empty()) {
+        printf("Copy: %d values, (%d)\n", 227*227, src.info()->total_size());
+        map(src, true);
 
-    //    Window window;
-    //    window.set(Window::DimX, Window::Dimension(0, 227, 1));
-    //    window.set(Window::DimY, Window::Dimension(0, 227, 1));
-    //    window.set(Window::DimZ, Window::Dimension(0, 1, 1));
+        Window window;
+        window.set(Window::DimX, Window::Dimension(0, 227, 1));
+        window.set(Window::DimY, Window::Dimension(0, 227, 1));
+        window.set(Window::DimZ, Window::Dimension(0, 1, 1));
 
-    //    Iterator out(&src, window);
+        Iterator out(&src, window);
 
-    //    size_t stride_z = src.info()->strides_in_bytes()[2];
-    //    unsigned char *ptr = img_buffer;
-    //    unsigned char r, g, b;
+        size_t stride_z = src.info()->strides_in_bytes()[2];
+        unsigned char *ptr = img_buffer;
+        unsigned char r, g, b;
 
-    //    execute_window_loop(window, [&](const Coordinates & id)
-    //    {
-    //        r = *(ptr++);
-    //        g = *(ptr++);
-    //        b = *(ptr++);
+        execute_window_loop(window, [&](const Coordinates & id)
+        {
+            r = *(ptr++);
+            g = *(ptr++);
+            b = *(ptr++);
 
-    //        *reinterpret_cast<float *>(out.ptr() + 1 * stride_z) = static_cast<float>(r);
-    //        *reinterpret_cast<float *>(out.ptr() + 2 * stride_z) = static_cast<float>(g);
-    //        *reinterpret_cast<float *>(out.ptr() + 3 * stride_z) = static_cast<float>(b);
-    //    },
-    //    out);
+            *reinterpret_cast<float *>(out.ptr() + 0 * stride_z) = static_cast<float>(b) - 104.;
+            *reinterpret_cast<float *>(out.ptr() + 1 * stride_z) = static_cast<float>(g) - 117.;
+            *reinterpret_cast<float *>(out.ptr() + 2 * stride_z) = static_cast<float>(r) - 123.;
+        },
+        out);
 
-    //    unmap(src);
-    //} else {
-    //    printf("SRC IMAGE HAS PADDING, UNSUPPORTED!");
-    //    return NULL;
-    //}
+        unmap(src);
+    } else {
+        printf("SRC IMAGE HAS PADDING, UNSUPPORTED!");
+        return NULL;
+    }
 
-    //const std::string fname = "net_img.npy";
-    //utils::save_to_npy(src, fname, false);
+    const std::string fname = "img.npy";
+    utils::save_to_npy(src, fname, false);
 
-    //src image
-    const std::string src_path = "images/cat.ppm";
-    //graph_utils::PPMAccessor src_ldr(src_path, true, 104., 117., 123.);
-    graph_utils::PPMAccessor src_ldr(src_path, true, 0., 0., 0.);
-    src_ldr.access_tensor(src);
+    ////src image
+    //const std::string src_path = "images/cat.ppm";
+    ////graph_utils::PPMAccessor src_ldr(src_path, true, 104., 117., 123.);
+    //graph_utils::PPMAccessor src_ldr(src_path, true, 0., 0., 0.);
+    //src_ldr.access_tensor(src);
 
-    const std::string ffname = "img.npy";
-    utils::save_to_npy(src, ffname, false);
+    //const std::string ffname = "img.npy";
+    //utils::save_to_npy(src, ffname, false);
 
     /* -------------------------------- [Execute the functions] -------------------------------- */
 

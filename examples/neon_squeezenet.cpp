@@ -127,9 +127,6 @@ void main_cnn(int argc, const char **argv)
     ARM_COMPUTE_UNUSED(argc);
     ARM_COMPUTE_UNUSED(argv);
 
-    // Create NEON allocator
-    Allocator allocator;
-
     // The src tensor should contain the input image
     Tensor src;
 
