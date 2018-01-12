@@ -134,13 +134,6 @@
 using namespace arm_compute;
 using namespace utils;
 
-static double t_msec(int clock_type) {
-    struct timespec t;
-
-    clock_gettime(clock_type, &t);
-    return 1e3 * t.tv_sec + t.tv_nsec / 1e6;
-}
-
 template <typename F>
 void clock_fn(F f) {
     clock_t t_begin = std::clock();
@@ -470,7 +463,9 @@ void main_cnn(int argc, const char **argv)
 
     const TensorShape conv1_weights_shape(conv1_kernel_x, conv1_kernel_y, src_shape.z(), conv1_ofm);
     const TensorShape conv1_bias_shape(conv1_weights_shape[3]);
-    const TensorShape conv1_out_shape(src_shape.x(), src_shape.y(), conv1_weights_shape[3]);
+    TensorShape conv1_out_shape(src_shape.x(), src_shape.y(), conv1_weights_shape[3]);
+    conv1_out_shape.set(0, conv1_out_shape.x() / 2);
+    conv1_out_shape.set(1, conv1_out_shape.y() / 2);
 
     conv1_weights.allocator()->init(TensorInfo(conv1_weights_shape, 1, DataType::F32));
     conv1_bias.allocator()->init(TensorInfo(conv1_bias_shape, 1, DataType::F32));
@@ -959,7 +954,7 @@ void main_cnn(int argc, const char **argv)
     /* [Configure functions] */
 
     //conv1 - in: 227x227x3: 3x3 convolution, 64 output feature maps stride 2
-    conv1.configure(&src, &conv1_weights, &conv1_bias, &conv1_out, PadStrideInfo(1, 1, 1, 1)); //STRIDE_X, STRIDE_Y, PAD_X, PAD_Y
+    conv1.configure(&src, &conv1_weights, &conv1_bias, &conv1_out, PadStrideInfo(2, 2, 1, 1)); //STRIDE_X, STRIDE_Y, PAD_X, PAD_Y
     conv1_act.configure(&conv1_out, &conv1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //maxpool1 - in: 3x3, stride 2

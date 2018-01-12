@@ -1289,7 +1289,7 @@ void main_cnn(int argc, const char **argv)
     /* [Initialize weights and biases tensors] */
 
     //src image
-    const std::string src_path = "images/cat.ppm";
+    const std::string src_path = "images/pizza.ppm";
     graph_utils::PPMAccessor src_ldr(src_path, true, 104., 117., 123.);
     src_ldr.access_tensor(src);
 
