@@ -954,7 +954,7 @@ void main_cnn(int argc, const char **argv)
     /* [Configure functions] */
 
     //conv1 - in: 227x227x3: 3x3 convolution, 64 output feature maps stride 2
-    conv1.configure(&src, &conv1_weights, &conv1_bias, &conv1_out, PadStrideInfo(2, 2, 1, 1)); //STRIDE_X, STRIDE_Y, PAD_X, PAD_Y
+    conv1.2onfigure(&src, &conv1_weights, &conv1_bias, &conv1_out, PadStrideInfo(2, 2, 1, 1)); //STRIDE_X, STRIDE_Y, PAD_X, PAD_Y
     conv1_act.configure(&conv1_out, &conv1_act_out, ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU));
 
     //maxpool1 - in: 3x3, stride 2
