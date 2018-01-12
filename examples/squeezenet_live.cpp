@@ -36,24 +36,24 @@ static int quit = false;
  * Assumes stride = width and subsampling = 2
  * Subsampels the whole image to half..
  */
-void ycbcr2rgb(unsigned char *yy, unsigned char *cb, unsigned char *cr,
-               unsigned char *rgb_out, int width, int height,
-               int crop_width, int crop_height) {
-  double r, g, b;
-  int x, y;
-
-  for (y = 0; y < crop_height; y ++) {
-    for (x = 0; x < crop_width; x ++) {
-        r = yy[2 * y * width + x * 2] + (1.4065 * (cr[y * width/2 + x] - 128));
-        g = yy[2 * y * width + x * 2] - (0.3455 * (cb[y * width/2 + x] - 128)) - (0.7169 * (cr[y * width/2 + x] - 128));
-        b = yy[2 * y * width + x * 2] + (1.7790 * (cb[y * width/2 + x] - 128));
-
-        rgb_out[(y * crop_width + x) * 3 + 0] = r < 0 ? 0 : (r > 255 ? 255 : (unsigned char)r);
-        rgb_out[(y * crop_width + x) * 3 + 1] = g < 0 ? 0 : (g > 255 ? 255 : (unsigned char)g);
-        rgb_out[(y * crop_width + x) * 3 + 2] = b < 0 ? 0 : (b > 255 ? 255 : (unsigned char)b);
-    }
-  }
-}
+//void ycbcr2rgb(unsigned char *yy, unsigned char *cb, unsigned char *cr,
+//               unsigned char *rgb_out, int width, int height,
+//               int crop_width, int crop_height) {
+//  double r, g, b;
+//  int x, y;
+//
+//  for (y = 0; y < crop_height; y ++) {
+//    for (x = 0; x < crop_width; x ++) {
+//        r = yy[2 * y * width + x * 2] + (1.4065 * (cr[y * width/2 + x] - 128));
+//        g = yy[2 * y * width + x * 2] - (0.3455 * (cb[y * width/2 + x] - 128)) - (0.7169 * (cr[y * width/2 + x] - 128));
+//        b = yy[2 * y * width + x * 2] + (1.7790 * (cb[y * width/2 + x] - 128));
+//
+//        rgb_out[(y * crop_width + x) * 3 + 0] = r < 0 ? 0 : (r > 255 ? 255 : (unsigned char)r);
+//        rgb_out[(y * crop_width + x) * 3 + 1] = g < 0 ? 0 : (g > 255 ? 255 : (unsigned char)g);
+//        rgb_out[(y * crop_width + x) * 3 + 2] = b < 0 ? 0 : (b > 255 ? 255 : (unsigned char)b);
+//    }
+//  }
+//}
 
 static void write_ppm(void *data, int width, int height, char *fname) {
   FILE *fp;
@@ -85,9 +85,6 @@ int main(int argc, char** argv) {
   img.y  = NULL;
   img.cb = NULL;
   img.cr = NULL;
-
-  int wout = 227;
-  int hout = 227;
 
   int images = 0;
 
@@ -128,14 +125,15 @@ int main(int argc, char** argv) {
         goto EXIT;
     }
 
-    unsigned char *rgb = (unsigned char *)malloc(wout * hout * 3);
-    ycbcr2rgb(img.y, img.cb, img.cr, rgb, img.width, img.height, wout, hout);
+    //unsigned char *rgb = (unsigned char *)malloc(wout * hout * 3);
+    //ycbcr2rgb(img.y, img.cb, img.cr, rgb, img.width, img.height, wout, hout);
+    //write_ppm(rgb, wout, hout, (char *)"rgb.ppm");
+    //squeezenet_set_rgb(rgb);
+    
+    squeezenet_set_ybcbr_planar(img.y, img.cb, img.cr, img.width);
+    squeezenet_classify();
 
-    write_ppm(rgb, wout, hout, (char *)"rgb.ppm");
-
-    squeezenet_classify(rgb);
-
-    free(rgb);
+    //free(rgb);
 
     ldr_image_release(ldr, img.y);
     ldr_image_release(ldr, img.cb);

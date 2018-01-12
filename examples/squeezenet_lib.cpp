@@ -1230,11 +1230,8 @@ void squeezenet_create() {
     load_npy(conv10_bias, wb_path, "conv10_b");
 }
 
-
-char *squeezenet_classify(unsigned char *img_buffer) {
-
+void squeezenet_set_rgb(unsigned char *img_buffer) {
     if (src.info()->padding().empty()) {
-        printf("Copy: %d values, (%d)\n", 227*227, src.info()->total_size());
         map(src, true);
 
         Window window;
@@ -1263,20 +1260,61 @@ char *squeezenet_classify(unsigned char *img_buffer) {
         unmap(src);
     } else {
         printf("SRC IMAGE HAS PADDING, UNSUPPORTED!");
-        return NULL;
     }
+}
 
-    const std::string fname = "img.npy";
-    utils::save_to_npy(src, fname, false);
+void squeezenet_set_ybcbr_planar(unsigned char *yy, unsigned char *cb, unsigned char *cr, int stride) {
 
-    ////src image
-    //const std::string src_path = "images/cat.ppm";
-    ////graph_utils::PPMAccessor src_ldr(src_path, true, 104., 117., 123.);
-    //graph_utils::PPMAccessor src_ldr(src_path, true, 0., 0., 0.);
-    //src_ldr.access_tensor(src);
+    int outw = 227;
+    int outh = 227;
 
-    //const std::string ffname = "img.npy";
-    //utils::save_to_npy(src, ffname, false);
+    if (src.info()->padding().empty()) {
+        map(src, true);
+
+        Window window;
+        window.set(Window::DimX, Window::Dimension(0, outw, 1));
+        window.set(Window::DimY, Window::Dimension(0, outh, 1));
+        window.set(Window::DimZ, Window::Dimension(0, 1, 1));
+
+        Iterator out(&src, window);
+
+        size_t stride_z = src.info()->strides_in_bytes()[2];
+
+        float r, g, b;
+        unsigned char y;
+        int row = 0,
+            col = 0,
+            p = 0;
+
+        execute_window_loop(window, [&](const Coordinates & id)
+        {
+            y = yy[(row * stride + col) * 2];
+            p = row * stride / 2 + col;
+
+            r = y + (1.4065 * (cr[p] - 128));
+            g = y - (0.3455 * (cb[p] - 128)) - (0.7169 * (cr[p] - 128));
+            b = y + (1.7790 * (cb[p] - 128));
+
+            *reinterpret_cast<float *>(out.ptr() + 0 * stride_z) = (float)b - 123.;
+            *reinterpret_cast<float *>(out.ptr() + 1 * stride_z) = (float)g - 117.;
+            *reinterpret_cast<float *>(out.ptr() + 2 * stride_z) = (float)r - 104.;
+
+            if (++col == outw) {
+                col = 0;
+                row++;
+            }
+        },
+        out);
+
+        unmap(src);
+    } else {
+        printf("SRC IMAGE HAS PADDING, UNSUPPORTED!");
+    }
+}
+
+void squeezenet_classify() {
+    //const std::string fname = "img.npy";
+    //utils::save_to_npy(src, fname, false);
 
     /* -------------------------------- [Execute the functions] -------------------------------- */
 
@@ -1388,6 +1426,4 @@ char *squeezenet_classify(unsigned char *img_buffer) {
 
 
     // Release memory?
-
-    return NULL;
 }
